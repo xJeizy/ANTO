@@ -2,4 +2,4 @@
 UN JUEGUITO PARA QUE TE DISTRAIGAS
 ![Buscaminas de Anto](cover.png)
 
-**Juega aquí 👉 [https://tuusuario.github.io/buscaminas-de-anto](https://tuusuario.github.io/buscaminas-de-anto)**
+**Juega aquí 👉 [https://xjeizy.github.io/ANTO/](https://xjeizy.github.io/ANTO/)**
