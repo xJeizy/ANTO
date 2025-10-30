@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Buscaminas de Anto</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0a0f2c;
+      color: #d0e6ff;
+      font-family: 'Courier New', monospace;
+      text-align: center;
+    }
+
+    h1, h2 {
+      font-size: 2.5em;
+      letter-spacing: 2px;
+      text-shadow: 0 0 5px #00bfff;
+      margin-bottom: 10px;
+    }
+
+    #intro {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #0a0f2c, #001f3f);
+      background-size: 400% 400%;
+      animation: pulse-bg 6s ease infinite;
+      color: #00bfff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    @keyframes pulse-bg {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    #intro p {
+      margin: 10px 0;
+      font-size: 1.2em;
+      color: #99ccff;
+    }
+
+    #difficulty {
+      padding: 6px;
+      font-size: 1em;
+      margin-bottom: 10px;
+      background: #00bfff;
+      color: #001f3f;
+      border: none;
+      font-weight: bold;
+    }
+
+    #start-btn, #restart-btn {
+      padding: 10px 20px;
+      font-size: 1em;
+      background: #00bfff;
+      color: #001f3f;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 0 10px #00bfff;
+      margin-top: 10px;
+    }
+
+    #main-game {
+      display: none;
+    }
+
+    #main-game.glitch-restart {
+      animation: restart-glitch 0.4s;
+    }
+
+    @keyframes restart-glitch {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05) rotate(1deg); }
+      100% { transform: scale(1); }
+    }
+
+    #hud {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    #hud div {
+      animation: pulse-icon 2s infinite;
+    }
+
+    @keyframes pulse-icon {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    #status {
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: #66ccff;
+    }
+
+    #wins {
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: #66ffcc;
+    }
+
+    #game {
+      display: grid;
+      gap: 2px;
+      justify-content: center;
+    }
+
+    .cell {
+      background-color: #102040;
+      border: 1px solid #1f3f7f;
+      color: #00eaff;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      touch-action: manipulation;
+    }
+
+    .cell.revealed {
+      background-color: #2a4f7f;
+      color: #ffffff;
+    }
+
+    .cell.flagged {
+      background-color: #00bfff;
+      color: #001f3f;
+    }
+
+    .cell.glitch {
+      animation: glitch-cell 0.3s;
+    }
+
+    @keyframes glitch-cell {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2) rotate(2deg); }
+      100% { transform: scale(1); }
+    }
+
+    .cell.win {
+      animation: win-flash 0.5s infinite;
+    }
+
+    @keyframes win-flash {
+      0%, 100% { background-color: #2a4f7f; }
+      50% { background-color: #00bfff; }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.8em;
+      }
+
+      #hud {
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+
+      #restart-btn {
+        width: 80%;
+        font-size: 1em;
+        margin-top: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="intro">
+    <h2>💣 BUSCAMINAS DE ANTO!</h2>
+    <p>PARA QUE TE DISTRAIGAS</p>
+    <label for="difficulty">Dificultad:</label>
+    <select id="difficulty">
+      <option value="easy">🟢 Fácil</option>
+      <option value="medium" selected>🟡 Medio</option>
+      <option value="hard">🔴 Difícil</option>
+    </select>
+    <button id="start-btn">JUGAR</button>
+  </div>
+
+  <div id="main-game">
+    <h1>💣 BUSCAMINAS DE ANTO!</h1>
+    <div id="hud">
+      <div id="timer">⏱️ 00:00</div>
+      <div id="mines-left">🚩 15</div>
+    </div>
+    <div id="status">Haz clic para comenzar</div>
+    <div id="wins">🏆 Partidas ganadas: 0</div>
+    <div id="game"></div>
+    <button id="restart-btn">JUGAR DE NUEVO</button>
+  </div>
+
+  <audio id="win-sound" src="win.mp3"></audio>
+  <audio id="lose-sound" src="lose.mp3"></audio>
+<script>
+  let rows = 10;
+  let cols = 10;
+  let totalMines = 15;
+  let board = [];
+  let revealedCount = 0;
+  let gameOver = false;
+  let timerInterval;
+  let seconds = 0;
+  let minesLeft = totalMines;
+  let winCount = 0;
+
+  const game = document.getElementById("game");
+  const status = document.getElementById("status");
+  const timer = document.getElementById("timer");
+  const minesDisplay = document.getElementById("mines-left");
+  const restartBtn = document.getElementById("restart-btn");
+
+  function getDifficultySettings() {
+    const level = document.getElementById("difficulty").value;
+    if (level === "easy") return { rows: 8, cols: 8, mines: 10 };
+    if (level === "medium") return { rows: 10, cols: 10, mines: 15 };
+    if (level === "hard") return { rows: 12, cols: 12, mines: 25 };
+    return { rows: 10, cols: 10, mines: 15 };
+  }
+
+  document.getElementById("start-btn").onclick = () => {
+    const settings = getDifficultySettings();
+    rows = settings.rows;
+    cols = settings.cols;
+    totalMines = settings.mines;
+    document.getElementById("intro").style.display = "none";
+    document.getElementById("main-game").style.display = "block";
+    createBoard();
+  };
+
+  restartBtn.onclick = () => {
+    const settings = getDifficultySettings();
+    rows = settings.rows;
+    cols = settings.cols;
+    totalMines = settings.mines;
+    document.getElementById("main-game").classList.add("glitch-restart");
+    setTimeout(() => {
+      document.getElementById("main-game").classList.remove("glitch-restart");
+      createBoard();
+    }, 400);
+  };
+
+  function playSound(id) {
+    const sound = document.getElementById(id);
+    if (sound) {
+      sound.currentTime = 0;
+      sound.play();
+    }
+  }
+
+  function updateWins() {
+    winCount++;
+    document.getElementById("wins").textContent = `🏆 Partidas ganadas: ${winCount}`;
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      seconds++;
+      const min = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const sec = String(seconds % 60).padStart(2, '0');
+      timer.textContent = `⏱️ ${min}:${sec}`;
+    }, 1000);
+  }
+
+  function createBoard() {
+    board = [];
+    revealedCount = 0;
+    gameOver = false;
+    seconds = 0;
+    clearInterval(timerInterval);
+    timer.textContent = "⏱️ 00:00";
+    minesLeft = totalMines;
+    minesDisplay.textContent = `🚩 ${minesLeft}`;
+    status.textContent = "Haz clic para comenzar";
+    game.innerHTML = "";
+    game.style.gridTemplateColumns = `repeat(${cols}, 34px)`;
+
+    for (let i = 0; i < rows * cols; i++) {
+      board.push({ mine: false, revealed: false, flagged: false, count: 0 });
+    }
+
+    let placed = 0;
+    while (placed < totalMines) {
+      let i = Math.floor(Math.random() * board.length);
+      if (!board[i].mine) {
+        board[i].mine = true;
+        placed++;
+      }
+    }
+
+    for (let i = 0; i < board.length; i++) {
+      if (board[i].mine) continue;
+      let count = 0;
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          let x = i % cols + dx;
+          let y = Math.floor(i / cols) + dy;
+          if (x >= 0 && x < cols && y >= 0 && y < rows) {
+            let idx = y * cols + x;
+            if (board[idx].mine) count++;
+          }
+        }
+      }
+      board[i].count = count;
+    }
+
+    for (let i = 0; i < board.length; i++) {
+      const btn = document.createElement("button");
+      btn.className = "cell";
+      btn.style.width = "34px";
+      btn.style.height = "34px";
+      btn.oncontextmenu = (e) => {
+        e.preventDefault();
+        toggleFlag(i, btn);
+      };
+      btn.onclick = () => {
+        if (seconds === 0) startTimer();
+        btn.classList.add("glitch");
+        setTimeout(() => btn.classList.remove("glitch"), 300);
+        reveal(i, btn);
+      };
+      game.appendChild(btn);
+    }
+  }
+
+  function toggleFlag(i, btn) {
+    if (board[i].revealed || gameOver) return;
+    board[i].flagged = !board[i].flagged;
+    btn.textContent = board[i].flagged ? "🚩" : "";
+    btn.classList.toggle("flagged");
+    minesLeft += board[i].flagged ? -1 : 1;
+    minesDisplay.textContent = `🚩 ${minesLeft}`;
+  }
+
+  function reveal(i, btn) {
+    if (board[i].revealed || board[i].flagged || gameOver) return;
+
+    board[i].revealed = true;
+    btn.classList.add("revealed");
+
+    if (board[i].mine) {
+      btn.textContent = "💣";
+      status.textContent = "💥 ¡Perdiste!";
+      revealAll();
+      clearInterval(timerInterval);
+      gameOver = true;
+      playSound("lose-sound");
+      return;
+    }
+
+    revealedCount++;
+    btn.textContent = board[i].count || "";
+
+    if (board[i].count === 0) revealNeighbors(i);
+
+    if (revealedCount === rows * cols - totalMines) {
+      status.textContent = "🎉 ¡Ganaste!";
+      revealAll(true);
+      clearInterval(timerInterval);
+      gameOver = true;
+      playSound("win-sound");
+      updateWins();
+    }
+  }
+
+  function revealNeighbors(i) {
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        let x = i % cols + dx;
+        let y = Math.floor(i / cols) + dy;
+        if (x >= 0 && x < cols && y >= 0 && y < rows) {
+          let idx = y * cols + x;
+          if (!board[idx].revealed && !board[idx].mine) {
+            const btn = game.children[idx];
+            reveal(idx, btn);
+          }
+        }
+      }
+    }
+  }
+
+  function revealAll(win = false) {
+    for (let i = 0; i < board.length; i++) {
+      const btn = game.children[i];
+      if (board[i].mine && !board[i].flagged) {
+        btn.textContent = "💣";
+        btn.classList.add("revealed");
+      }
+      if (win && board[i].flagged) {
+        btn.textContent = "🎉";
+        btn.classList.add("win");
+      }
+    }
+  }
+</script>
+</body>
+</html>
